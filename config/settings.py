@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -23,19 +24,114 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load .env from project root during Django startup.
 load_dotenv(BASE_DIR / '.env')
 
+TRUE_VALUES = {'1', 'true', 'yes', 'on'}
+
+
+def get_env(name, default=None, required=False):
+    value = os.getenv(name, default)
+    if required and (value is None or str(value).strip() == ''):
+        raise ImproperlyConfigured(f'{name} is required')
+    return value
+
+
+def get_bool_env(name, default=False):
+    raw_value = get_env(name, default=str(default))
+    return str(raw_value).strip().lower() in TRUE_VALUES
+
+
+def get_int_env(name, default):
+    raw_value = get_env(name, default=str(default))
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError) as error:
+        raise ImproperlyConfigured(f'{name} must be an integer') from error
+
+
+def get_csv_env(name, default=''):
+    raw_value = get_env(name, default=default)
+    return [item.strip() for item in str(raw_value).split(',') if item.strip()]
+
+
+def get_proxy_ssl_header():
+    raw_value = str(get_env('DJANGO_SECURE_PROXY_SSL_HEADER', default='')).strip()
+    if raw_value == '':
+        return None
+
+    header_values = [item.strip() for item in raw_value.split(',') if item.strip()]
+    if len(header_values) != 2:
+        raise ImproperlyConfigured('DJANGO_SECURE_PROXY_SSL_HEADER must be in format HEADER_NAME,https')
+    return tuple(header_values)
+
+
+def build_database_config(database_url):
+    if database_url.startswith('sqlite:///'):
+        sqlite_path = database_url.removeprefix('sqlite:///')
+        if sqlite_path == '':
+            raise ImproperlyConfigured('DATABASE_URL sqlite path is required')
+        if sqlite_path == ':memory:':
+            db_name = sqlite_path
+        elif sqlite_path.startswith('/'):
+            db_name = sqlite_path
+        else:
+            db_name = str(BASE_DIR / sqlite_path)
+        return {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': db_name,
+        }
+
+    parsed_url = urlparse(database_url)
+    if parsed_url.scheme not in {'postgres', 'postgresql'}:
+        raise ImproperlyConfigured('DATABASE_URL scheme must be sqlite, postgres, or postgresql')
+
+    db_name = parsed_url.path.lstrip('/')
+    if db_name == '':
+        raise ImproperlyConfigured('DATABASE_URL database name is required')
+
+    db_config = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': unquote(db_name),
+        'USER': unquote(parsed_url.username) if parsed_url.username else '',
+        'PASSWORD': unquote(parsed_url.password) if parsed_url.password else '',
+        'HOST': parsed_url.hostname or '',
+        'PORT': str(parsed_url.port) if parsed_url.port else '',
+    }
+
+    query_params = parse_qs(parsed_url.query)
+    options = {key: values[-1] for key, values in query_params.items() if values}
+    if options:
+        db_config['OPTIONS'] = options
+
+    return db_config
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-if not SECRET_KEY:
-    raise ImproperlyConfigured('DJANGO_SECRET_KEY is required')
+SECRET_KEY = get_env('DJANGO_SECRET_KEY', required=True)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DJANGO_DEBUG', 'False').strip().lower() in {'1', 'true', 'yes', 'on'}
+DEBUG = get_bool_env('DJANGO_DEBUG', default=False)
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') if host.strip()]
+ALLOWED_HOSTS = get_csv_env('DJANGO_ALLOWED_HOSTS', default='127.0.0.1,localhost' if DEBUG else '')
+if not ALLOWED_HOSTS:
+    raise ImproperlyConfigured('DJANGO_ALLOWED_HOSTS is required')
+
+CSRF_TRUSTED_ORIGINS = get_csv_env('DJANGO_CSRF_TRUSTED_ORIGINS')
+SECURE_PROXY_SSL_HEADER = get_proxy_ssl_header()
+SECURE_SSL_REDIRECT = get_bool_env('DJANGO_SECURE_SSL_REDIRECT', default=False)
+SECURE_HSTS_SECONDS = get_int_env('DJANGO_SECURE_HSTS_SECONDS', default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = get_bool_env('DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False)
+SECURE_HSTS_PRELOAD = get_bool_env('DJANGO_SECURE_HSTS_PRELOAD', default=False)
+SECURE_CONTENT_TYPE_NOSNIFF = get_bool_env('DJANGO_SECURE_CONTENT_TYPE_NOSNIFF', default=True)
+SECURE_REFERRER_POLICY = get_env('DJANGO_SECURE_REFERRER_POLICY', default='same-origin')
+SECURE_CROSS_ORIGIN_OPENER_POLICY = get_env('DJANGO_SECURE_CROSS_ORIGIN_OPENER_POLICY', default='same-origin')
+X_FRAME_OPTIONS = get_env('DJANGO_X_FRAME_OPTIONS', default='DENY')
+SESSION_COOKIE_SECURE = get_bool_env('DJANGO_SESSION_COOKIE_SECURE', default=False)
+SESSION_COOKIE_HTTPONLY = get_bool_env('DJANGO_SESSION_COOKIE_HTTPONLY', default=True)
+CSRF_COOKIE_SECURE = get_bool_env('DJANGO_CSRF_COOKIE_SECURE', default=False)
+CSRF_COOKIE_HTTPONLY = get_bool_env('DJANGO_CSRF_COOKIE_HTTPONLY', default=False)
+DJANGO_LOG_LEVEL = get_env('DJANGO_LOG_LEVEL', default='INFO').upper()
 
 
 # Application definition
@@ -82,12 +178,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
+DATABASE_URL = get_env('DATABASE_URL', required=True)
+DATABASES = {'default': build_database_config(DATABASE_URL)}
+DATABASES['default']['CONN_MAX_AGE'] = get_int_env('DJANGO_DB_CONN_MAX_AGE', default=60)
+DATABASES['default']['CONN_HEALTH_CHECKS'] = get_bool_env('DJANGO_DB_CONN_HEALTH_CHECKS', default=True)
 
 
 # Password validation
@@ -112,16 +206,49 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = get_env('DJANGO_LANGUAGE_CODE', default='en-us')
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = get_env('DJANGO_TIME_ZONE', default='UTC')
 
-USE_I18N = True
+USE_I18N = get_bool_env('DJANGO_USE_I18N', default=True)
 
-USE_TZ = True
+USE_TZ = get_bool_env('DJANGO_USE_TZ', default=True)
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = get_env('DJANGO_STATIC_URL', default='/static/')
+STATIC_ROOT = Path(get_env('DJANGO_STATIC_ROOT', default=str(BASE_DIR / 'staticfiles')))
+
+MEDIA_URL = get_env('DJANGO_MEDIA_URL', default='/media/')
+MEDIA_ROOT = Path(get_env('DJANGO_MEDIA_ROOT', default=str(BASE_DIR / 'media')))
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': DJANGO_LOG_LEVEL,
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': DJANGO_LOG_LEVEL,
+            'propagate': False,
+        },
+    },
+}
