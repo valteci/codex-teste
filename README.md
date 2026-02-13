@@ -18,6 +18,7 @@
 
 - Logs do Django em stdout com formato consistente.
 - Gunicorn com access/error logs em stdout.
+- Coletor de logs `Grafana Alloy` em container para exportar logs Docker ao Google Cloud Logging.
 - Endpoints:
   - `GET /health/live/`
   - `GET /health/ready/` (valida conexão com banco)
@@ -91,6 +92,25 @@ docker compose exec web python manage.py shell
 
 ```bash
 docker build -t django-project:local .
+```
+
+### Subir coletor de logs (Alloy -> Google Cloud Logging)
+
+1. Defina `GCP_PROJECT_ID` em `.env.sample`.
+2. Coloque a chave de service account em `secrets/service-account.json`.
+3. Garanta que a service account tenha o papel `roles/logging.logWriter`.
+
+```bash
+docker compose up -d alloy
+docker compose logs -f alloy
+```
+
+4. Para ver os logs no gcloud:
+```bash
+gcloud logging read \
+  'log_id("alloy-docker-logs")' \
+  --project=GCP_PROJECT_ID \
+  --limit=20
 ```
 
 ## Notas de produção

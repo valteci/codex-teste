@@ -13,6 +13,11 @@ services:
       start_period: 5s
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - backend
 
@@ -46,11 +51,49 @@ services:
       retries: 6
       start_period: 30s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - backend
+
+  alloy:
+    image: grafana/alloy:latest
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - --feature.community-components.enabled=true
+    env_file:
+      - .env.sample
+    environment:
+      #GCP_PROJECT_ID: ${GCP_PROJECT_ID:-}
+      GOOGLE_APPLICATION_CREDENTIALS: /var/secrets/google/service-account.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./secrets:/var/secrets/google:ro
+      - alloy_data:/var/lib/alloy/data
+    ports:
+      - "12345:12345"
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - backend
 
 volumes:
   postgres_data:
+  alloy_data:
 
 networks:
   backend:

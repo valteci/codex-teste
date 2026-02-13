@@ -1,0 +1,72 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker_logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    replacement   = "$1"
+    target_label  = "container"
+  }
+
+  rule {
+    action        = "replace"
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.*)"
+    replacement   = "$1"
+    target_label  = "service"
+  }
+
+  rule {
+    action        = "drop"
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/alloy"
+  }
+}
+
+loki.source.docker "containers" {
+  host    = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.docker_logs.output
+  labels = {
+    collector = "alloy",
+  }
+  forward_to = [otelcol.receiver.loki.docker.receiver]
+}
+
+otelcol.receiver.loki "docker" {
+  output {
+    logs = [otelcol.processor.memory_limiter.gcp.input]
+  }
+}
+
+otelcol.processor.memory_limiter "gcp" {
+  check_interval = "1s"
+  limit          = "200MiB"
+
+  output {
+    logs = [otelcol.processor.batch.gcp.input]
+  }
+}
+
+otelcol.processor.batch "gcp" {
+  output {
+    logs = [otelcol.exporter.googlecloud.gcp.input]
+  }
+}
+
+otelcol.exporter.googlecloud "gcp" {
+  project = sys.env("GCP_PROJECT_ID")
+
+  log {
+    default_log_name = "alloy-docker-logs"
+  }
+}

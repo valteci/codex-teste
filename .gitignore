@@ -37,6 +37,8 @@ staticfiles/
 !.env.example
 !.env.sample
 .ENV
+secrets/*
+!secrets/.gitkeep
 
 # Migrations cache / test artifacts
 .pytest_cache/
