@@ -89,6 +89,9 @@ jobs:
       - name: Instalar dependencias do projeto
         run: poetry install --no-interaction --only main
 
+      - name: Atualizar pip na virtualenv do projeto
+        run: poetry run python -m pip install --upgrade "pip>=26.0"
+
       - name: Instalar ferramentas de scan
         run: python -m pip install --upgrade pip bandit pip-audit
 
