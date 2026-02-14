@@ -42,8 +42,8 @@ jobs:
       - name: Instalar Poetry
         run: python -m pip install --upgrade pip poetry==2.1.1
 
-      - name: Instalar dependencias
-        run: poetry install --no-interaction
+      - name: Instalar dependencias (inclui dev para pytest)
+        run: poetry install --no-interaction --with dev
 
       - name: Django check
         run: poetry run python manage.py check
