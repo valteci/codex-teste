@@ -67,3 +67,12 @@ Thumbs.db
 
 # Poetry
 poetry.toml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfplan
+*.tfvars
+*.tfvars.json
