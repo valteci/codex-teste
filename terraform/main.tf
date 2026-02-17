@@ -2,9 +2,11 @@ locals {
   managed_services = setunion(
     var.enabled_services,
     toset([
+      "compute.googleapis.com",
       "iam.googleapis.com",
       "logging.googleapis.com",
       "run.googleapis.com",
+      "servicenetworking.googleapis.com",
       "secretmanager.googleapis.com",
       "sqladmin.googleapis.com",
     ])
@@ -34,6 +36,44 @@ resource "google_artifact_registry_repository" "app" {
 
   depends_on = [
     google_project_service.artifact_registry,
+  ]
+}
+
+resource "google_compute_network" "private" {
+  name                    = var.vpc_network_name
+  project                 = var.project_id
+  auto_create_subnetworks = false
+
+  depends_on = [
+    google_project_service.required["compute.googleapis.com"],
+  ]
+}
+
+resource "google_compute_subnetwork" "cloud_run" {
+  name                     = var.cloud_run_subnetwork_name
+  project                  = var.project_id
+  region                   = var.region
+  network                  = google_compute_network.private.id
+  ip_cidr_range            = var.cloud_run_subnetwork_cidr
+  private_ip_google_access = true
+}
+
+resource "google_compute_global_address" "private_services" {
+  project       = var.project_id
+  name          = var.private_services_address_name
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = var.private_services_prefix_length
+  network       = google_compute_network.private.id
+}
+
+resource "google_service_networking_connection" "private_services" {
+  network                 = google_compute_network.private.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_services.name]
+
+  depends_on = [
+    google_project_service.required["servicenetworking.googleapis.com"],
   ]
 }
 
@@ -135,12 +175,16 @@ resource "google_sql_database_instance" "django" {
     }
 
     ip_configuration {
-      ipv4_enabled = true
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.private.id
+      enable_private_path_for_google_cloud_services = true
+      ssl_mode                                      = var.cloud_sql_ssl_mode
     }
   }
 
   depends_on = [
     google_project_service.required["sqladmin.googleapis.com"],
+    google_service_networking_connection.private_services,
   ]
 }
 
@@ -167,6 +211,15 @@ resource "google_cloud_run_v2_service" "django" {
   template {
     service_account = google_service_account.cloud_run_runtime.email
     timeout         = "300s"
+
+    vpc_access {
+      egress = var.cloud_run_vpc_egress
+
+      network_interfaces {
+        network    = google_compute_network.private.id
+        subnetwork = google_compute_subnetwork.cloud_run.id
+      }
+    }
 
     scaling {
       min_instance_count = var.cloud_run_min_instances
@@ -217,6 +270,11 @@ resource "google_cloud_run_v2_service" "django" {
       env {
         name  = "DB_PORT"
         value = "5432"
+      }
+
+      env {
+        name  = "CLOUD_RUN_DIRECT_VPC_SUBNET_CIDR"
+        value = var.cloud_run_subnetwork_cidr
       }
 
       env {

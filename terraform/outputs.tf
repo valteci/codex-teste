@@ -23,6 +23,11 @@ output "cloud_run_service_account_email" {
   value       = google_service_account.cloud_run_runtime.email
 }
 
+output "cloud_run_subnetwork_name" {
+  description = "Nome da sub-rede usada pelo Cloud Run no Direct VPC egress."
+  value       = google_compute_subnetwork.cloud_run.name
+}
+
 output "cloud_sql_connection_name" {
   description = "Connection name da instancia Cloud SQL."
   value       = google_sql_database_instance.django.connection_name
@@ -36,4 +41,9 @@ output "cloud_sql_instance_name" {
 output "cloud_sql_database_name" {
   description = "Nome do banco de dados da aplicacao."
   value       = google_sql_database.django.name
+}
+
+output "vpc_network_name" {
+  description = "Nome da VPC privada usada entre Cloud Run e Cloud SQL."
+  value       = google_compute_network.private.name
 }

@@ -104,6 +104,24 @@ variable "container_port" {
   default     = 8000
 }
 
+variable "cloud_run_vpc_egress" {
+  description = "Egress do Cloud Run para a VPC ao usar Direct VPC egress."
+  type        = string
+  default     = "PRIVATE_RANGES_ONLY"
+}
+
+variable "cloud_run_subnetwork_name" {
+  description = "Nome da sub-rede usada pelo Cloud Run no Direct VPC egress."
+  type        = string
+  default     = "django-run-subnet"
+}
+
+variable "cloud_run_subnetwork_cidr" {
+  description = "Faixa CIDR da sub-rede usada pelo Cloud Run no Direct VPC egress."
+  type        = string
+  default     = "10.8.0.0/24"
+}
+
 variable "run_migrations_on_startup" {
   description = "Se true, executa migrate no startup do container."
   type        = bool
@@ -162,6 +180,30 @@ variable "cloud_sql_deletion_protection" {
   description = "Protecao contra delecao acidental do Cloud SQL."
   type        = bool
   default     = true
+}
+
+variable "cloud_sql_ssl_mode" {
+  description = "Modo SSL do Cloud SQL para conexoes de clientes."
+  type        = string
+  default     = "ENCRYPTED_ONLY"
+}
+
+variable "vpc_network_name" {
+  description = "Nome da VPC dedicada para trafego privado do Cloud Run para o Cloud SQL."
+  type        = string
+  default     = "django-private-vpc"
+}
+
+variable "private_services_address_name" {
+  description = "Nome do range reservado para Private Service Access."
+  type        = string
+  default     = "django-private-services-range"
+}
+
+variable "private_services_prefix_length" {
+  description = "Prefix length do range reservado para Private Service Access."
+  type        = number
+  default     = 16
 }
 
 variable "database_name" {
@@ -234,9 +276,11 @@ variable "enabled_services" {
   description = "Lista minima de APIs gerais que devem estar habilitadas no projeto (exceto Artifact Registry)."
   type        = set(string)
   default = [
+    "compute.googleapis.com",
     "iam.googleapis.com",
     "logging.googleapis.com",
     "run.googleapis.com",
+    "servicenetworking.googleapis.com",
     "secretmanager.googleapis.com",
     "sqladmin.googleapis.com",
   ]
