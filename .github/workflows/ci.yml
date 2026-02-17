@@ -1,11 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - develop
-      - homolog
-      - main
   pull_request:
     branches:
       - develop
@@ -54,6 +49,7 @@ jobs:
       - name: Trivy IaC scan
         uses: aquasecurity/trivy-action@0.33.1
         with:
+          version: 'v0.69.1'
           scan-type: config
           scan-ref: terraform
           scanners: misconfig
@@ -61,6 +57,7 @@ jobs:
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
+        
 
   tests:
     name: Testes Django

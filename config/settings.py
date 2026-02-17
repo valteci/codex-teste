@@ -98,8 +98,35 @@ def build_database_config(database_url):
 
     query_params = parse_qs(parsed_url.query)
     options = {key: values[-1] for key, values in query_params.items() if values}
+    host_override = str(options.pop('host', '')).strip()
+    port_override = str(options.pop('port', '')).strip()
+    if host_override != '':
+        db_config['HOST'] = host_override
+    if port_override != '':
+        db_config['PORT'] = port_override
     if options:
         db_config['OPTIONS'] = options
+
+    return db_config
+
+
+def build_database_config_from_parts():
+    db_name = str(get_env('DB_NAME', default='')).strip()
+    if db_name == '':
+        raise ImproperlyConfigured('DB_NAME is required when DATABASE_URL is not set')
+
+    db_config = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': db_name,
+        'USER': str(get_env('DB_USER', default='')).strip(),
+        'PASSWORD': get_env('DB_PASSWORD', default=''),
+        'HOST': str(get_env('DB_HOST', default='')).strip(),
+        'PORT': str(get_env('DB_PORT', default='')).strip(),
+    }
+
+    db_sslmode = str(get_env('DB_SSLMODE', default='')).strip()
+    if db_sslmode != '':
+        db_config['OPTIONS'] = {'sslmode': db_sslmode}
 
     return db_config
 
@@ -178,8 +205,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASE_URL = get_env('DATABASE_URL', required=True)
-DATABASES = {'default': build_database_config(DATABASE_URL)}
+DATABASE_URL = str(get_env('DATABASE_URL', default='')).strip()
+if DATABASE_URL != '':
+    default_database_config = build_database_config(DATABASE_URL)
+else:
+    default_database_config = build_database_config_from_parts()
+
+DATABASES = {'default': default_database_config}
 DATABASES['default']['CONN_MAX_AGE'] = get_int_env('DJANGO_DB_CONN_MAX_AGE', default=60)
 DATABASES['default']['CONN_HEALTH_CHECKS'] = get_bool_env('DJANGO_DB_CONN_HEALTH_CHECKS', default=True)
 

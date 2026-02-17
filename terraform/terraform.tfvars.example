@@ -1,2 +1,15 @@
-project_id = "logs-teste"
-region     = "us-central1"
+project_id      = "logs-teste"
+region          = "us-central1"
+artifact_registry_repository_id = "django-project"
+artifact_registry_location      = "us-central1"
+container_image                 = "us-central1-docker.pkg.dev/logs-teste/django-project/django-project:latest"
+cloud_sql_edition               = "ENTERPRISE"
+vpc_network_name                = "django-private-vpc"
+cloud_run_subnetwork_cidr       = "10.8.0.0/24"
+
+database_password = "trocar-esta-senha"
+django_secret_key = "trocar-esta-chave-secreta"
+
+django_allowed_hosts         = ".run.app"
+django_csrf_trusted_origins  = "https://SEU-SERVICO-XXXX-uc.a.run.app"
+cloud_run_allow_unauthenticated = true
