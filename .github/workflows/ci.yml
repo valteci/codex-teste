@@ -52,9 +52,13 @@ jobs:
       - name: TFLint
         run: tflint --recursive
 
-      - name: Teste
+      - name: Setup Trivy (no scan)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: 'none'
+
+      - name: Print Trivy version
         run: trivy --version
-        
 
       - name: Trivy IaC scan
         uses: aquasecurity/trivy-action@0.33.1
@@ -67,6 +71,7 @@ jobs:
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
+        
 
   tests:
     name: Testes Django
