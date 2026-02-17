@@ -3,7 +3,7 @@
 ## Resumo de arquitetura
 
 - App: Django 6 servido por Gunicorn.
-- Banco no runtime containerizado: PostgreSQL (`DATABASE_URL`).
+- Banco PostgreSQL configurado por `DATABASE_URL` ou por variáveis `DB_*` (útil no Cloud Run + Cloud SQL).
 - Configuração 12-factor por variáveis de ambiente.
 - Container com usuário não-root.
 
@@ -37,7 +37,7 @@ Workflow em `.github/workflows/ci.yml` com 3 jobs:
 ### Variáveis obrigatórias
 
 - `DJANGO_SECRET_KEY`
-- `DATABASE_URL`
+- `DATABASE_URL` **ou** `DB_NAME` + `DB_USER` + `DB_PASSWORD` (+ `DB_HOST`/`DB_PORT` quando necessário)
 - `DJANGO_ALLOWED_HOSTS`
 
 ### Variáveis de inicialização do container
