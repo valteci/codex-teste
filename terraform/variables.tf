@@ -182,12 +182,6 @@ variable "cloud_sql_deletion_protection" {
   default     = true
 }
 
-variable "cloud_sql_ssl_mode" {
-  description = "Modo SSL do Cloud SQL para conexoes de clientes."
-  type        = string
-  default     = "ENCRYPTED_ONLY"
-}
-
 variable "vpc_network_name" {
   description = "Nome da VPC dedicada para trafego privado do Cloud Run para o Cloud SQL."
   type        = string

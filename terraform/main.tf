@@ -178,7 +178,7 @@ resource "google_sql_database_instance" "django" {
       ipv4_enabled                                  = false
       private_network                               = google_compute_network.private.id
       enable_private_path_for_google_cloud_services = true
-      ssl_mode                                      = var.cloud_sql_ssl_mode
+      ssl_mode                                      = "ENCRYPTED_ONLY"
     }
   }
 
