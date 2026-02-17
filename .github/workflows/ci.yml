@@ -55,18 +55,14 @@ jobs:
       - name: Trivy IaC scan
         uses: aquasecurity/trivy-action@0.33.1
         with:
+          version: '0.69.1'
           scan-type: config
           scan-ref: terraform
-          cache: 'false'
           scanners: misconfig
           hide-progress: true
           format: table
           severity: HIGH,CRITICAL
           exit-code: "1"
-
-      - name: Print Trivy version
-        if: always()
-        run: trivy --version
         
 
   tests:
