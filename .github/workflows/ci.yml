@@ -61,7 +61,7 @@ jobs:
           scanners: misconfig
           hide-progress: true
           format: table
-          severity: CRITICAL
+          severity: HIGH,CRITICAL
           exit-code: "1"
 
       - name: Print Trivy version
