@@ -55,7 +55,7 @@ jobs:
       - name: Trivy IaC scan
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          version: 'latest'
+          version: 'v0.69.1'
           scan-type: config
           scan-ref: terraform
           scanners: misconfig
