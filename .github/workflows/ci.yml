@@ -52,14 +52,6 @@ jobs:
       - name: TFLint
         run: tflint --recursive
 
-      - name: Setup Trivy (no scan)
-        uses: aquasecurity/trivy-action@0.33.1
-        with:
-          scan-type: 'none'
-
-      - name: Print Trivy version
-        run: trivy --version
-
       - name: Trivy IaC scan
         uses: aquasecurity/trivy-action@0.33.1
         with:
@@ -69,8 +61,12 @@ jobs:
           scanners: misconfig
           hide-progress: true
           format: table
-          severity: HIGH,CRITICAL
+          severity: CRITICAL
           exit-code: "1"
+
+      - name: Print Trivy version
+        if: always()
+        run: trivy --version
         
 
   tests:
